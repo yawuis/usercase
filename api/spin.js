@@ -133,15 +133,16 @@ export default async function handler(req, res) {
       prize: selectedPrize.value,
       prize_type: selectedPrize.prize_type
     });
-
-    // Generate visual reel items using the pool names as fillers
+    // Generate mystery reel fillers instead of showing other real database items
     const reel = [];
+    const fillers = ['????', '----', 'BOX #1', 'BOX #2', 'MYSTERY'];
+    
     for (let i = 0; i < 30; i++) {
       if (i === 15) {
-        reel.push(selectedPrize.value);
+        reel.push(selectedPrize.value); // Only the winner is revealed at the end
       } else {
-        const randomFiller = combinedPool[Math.floor(Math.random() * combinedPool.length)];
-        reel.push(randomFiller.value);
+        const randomFiller = fillers[Math.floor(Math.random() * fillers.length)];
+        reel.push(randomFiller);
       }
     }
 
