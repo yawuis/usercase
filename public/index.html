@@ -166,14 +166,23 @@
 </div>
 
 <script>
-// Get or create a random anonymous local token (No IP logging)
+// Fallback memory token if localStorage is blocked or restricted in iframes
+let fallbackMemoryToken = null;
+
 function getAnonymousToken() {
-    let token = localStorage.getItem('vault_spinner_token');
-    if (!token) {
-        token = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
-        localStorage.setItem('vault_spinner_token', token);
+    try {
+        let token = localStorage.getItem('vault_spinner_token');
+        if (!token) {
+            token = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem('vault_spinner_token', token);
+        }
+        return token;
+    } catch (e) {
+        if (!fallbackMemoryToken) {
+            fallbackMemoryToken = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
+        return fallbackMemoryToken;
     }
-    return token;
 }
 
 async function fetchWinners() {
@@ -255,6 +264,7 @@ async function spinCase() {
             if (data.winners) {
                 renderWinners(data.winners);
             }
+            btn.disabled = false;
         }, 4100);
 
     } catch (err) {
