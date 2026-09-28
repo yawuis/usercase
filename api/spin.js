@@ -6,7 +6,6 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  // CORS headers for iframe support
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -20,7 +19,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Allow GET requests to fetch recent winners list for the ticker
+  // Allow GET requests to fetch recent winners ticker
   if (req.method === 'GET') {
     try {
       const { data: winners } = await supabase
@@ -39,18 +38,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const clientIp = 
-    req.headers['x-vercel-forwarded-for'] || 
-    req.headers['x-forwarded-for'] || 
-    req.socket.remoteAddress || 
-    '127.0.0.1';
+  const { userToken } = req.body || {};
+
+  if (!userToken) {
+    return res.status(400).json({ error: 'Invalid session token.' });
+  }
 
   try {
-    // Check cooldown (24 hours)
+    // Check cooldown based on anonymous browser token (no IPs tracked)
     const { data: cooldownData } = await supabase
       .from('user_cooldowns')
       .select('last_spun_at')
-      .eq('identifier', clientIp)
+      .eq('user_token', userToken)
       .single();
 
     if (cooldownData) {
@@ -89,11 +88,11 @@ export default async function handler(req, res) {
       await supabase.from('available_prizes').delete().eq('id', selectedPrize.id);
     }
 
-    // Update cooldown for IP
+    // Update cooldown using the anonymous browser token
     await supabase.from('user_cooldowns').upsert({
-      identifier: clientIp,
+      user_token: userToken,
       last_spun_at: new Date().toISOString()
-    });
+    }, { onConflict: 'user_token' });
 
     // Record win in recent_winners table
     await supabase.from('recent_winners').insert({
@@ -112,7 +111,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Custom claim messages
     let claimMessage = '';
     if (selectedPrize.prize_type === 'username') {
       claimMessage = `Claim your username at https://guns.lol/`;
@@ -120,7 +118,6 @@ export default async function handler(req, res) {
       claimMessage = `Open a ticket with proof in discord.gg/vaultsociety to claim.`;
     }
 
-    // Fetch latest updated winners list to send back
     const { data: updatedWinners } = await supabase
       .from('recent_winners')
       .select('*')

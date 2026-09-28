@@ -86,7 +86,6 @@
         button:disabled { background: #52525b; color: #a1a1aa; cursor: not-allowed; }
         #message { margin-top: 15px; font-weight: 500; font-size: 15px; line-height: 1.4; }
         
-        /* Recent Winners Feed Box */
         .winners-box {
             margin-top: 20px;
             background: #09090b;
@@ -101,9 +100,6 @@
             margin: 0 0 8px 0;
             color: #ffffff;
             font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
         .winner-item {
             display: flex;
@@ -111,14 +107,9 @@
             padding: 4px 0;
             border-bottom: 1px solid #18181b;
         }
-        .winner-item:last-child {
-            border-bottom: none;
-        }
-        .winner-item span b {
-            color: #3b82f6;
-        }
+        .winner-item:last-child { border-bottom: none; }
+        .winner-item span b { color: #3b82f6; }
 
-        /* Probabilities Index Styling */
         .chances-box {
             margin-top: 15px;
             background: #09090b;
@@ -134,13 +125,8 @@
             color: #ffffff;
             font-size: 14px;
         }
-        .chances-box ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .chances-box li {
-            margin: 4px 0;
-        }
+        .chances-box ul { margin: 0; padding-left: 20px; }
+        .chances-box li { margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -164,13 +150,11 @@
     <button id="spinBtn" onclick="spinCase()">Spin For Free</button>
     <div id="message"></div>
 
-    <!-- Live Recent Winners Feed -->
     <div class="winners-box">
         <h4>🏆 Live Recent Drops</h4>
         <div id="winnersList">Loading recent drops...</div>
     </div>
 
-    <!-- Probabilities / Chances Index -->
     <div class="chances-box">
         <h4>📊 Prize Probabilities & Chances</h4>
         <ul>
@@ -182,7 +166,16 @@
 </div>
 
 <script>
-// Load recent winners on page load
+// Get or create a random anonymous local token (No IP logging)
+function getAnonymousToken() {
+    let token = localStorage.getItem('vault_spinner_token');
+    if (!token) {
+        token = 'anon_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+        localStorage.setItem('vault_spinner_token', token);
+    }
+    return token;
+}
+
 async function fetchWinners() {
     try {
         const res = await fetch('/api/spin');
@@ -216,7 +209,6 @@ function getTimeAgo(dateString) {
     return `${hours}h ago`;
 }
 
-// Initial fetch
 fetchWinners();
 
 async function spinCase() {
@@ -227,8 +219,14 @@ async function spinCase() {
     btn.disabled = true;
     msg.textContent = "Spinning...";
 
+    const userToken = getAnonymousToken();
+
     try {
-        const response = await fetch('/api/spin', { method: 'POST' });
+        const response = await fetch('/api/spin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken })
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -237,24 +235,21 @@ async function spinCase() {
             return;
         }
 
-        // Render reel items dynamically using the returned reel array
         reel.innerHTML = data.reel.map((item, index) => 
             `<div class="reel-item ${index === 15 ? 'winner-box' : ''}">${item}</div>`
         ).join('');
 
-        // Reset position and animate to winner index (15)
         reel.style.transition = 'none';
         reel.style.transform = 'translateX(0px)';
         
         setTimeout(() => {
             reel.style.transition = 'transform 4s cubic-bezier(0.05, 0.9, 0.1, 1)';
-            const itemWidth = 130; // 120px width + 10px margins
+            const itemWidth = 130;
             const centerOffset = (reel.parentElement.clientWidth / 2) - (itemWidth / 2);
             const targetX = -(15 * itemWidth) + centerOffset;
             reel.style.transform = `translateX(${targetX}px)`;
         }, 50);
 
-        // Display winning result and update winners feed
         setTimeout(() => {
             msg.innerHTML = `🎉 You won: <b>${data.prize}</b>!<br>${data.message}`;
             if (data.winners) {
