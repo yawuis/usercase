@@ -6,11 +6,30 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // Enable CORS headers so embedded iframes can communicate freely
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  // Fallback to various headers to safely track the client IP inside iframes
+  const clientIp = 
+    req.headers['x-vercel-forwarded-for'] || 
+    req.headers['x-forwarded-for'] || 
+    req.socket.remoteAddress || 
+    '127.0.0.1';
 
   try {
     // Check cooldown (24 hours)
@@ -62,7 +81,7 @@ export default async function handler(req, res) {
       last_spun_at: new Date().toISOString()
     });
 
-    // Generate a visual reel of 30 items where index 15 lands on the winner
+    // Generate visual reel items
     const reel = [];
     for (let i = 0; i < 30; i++) {
       if (i === 15) {
@@ -73,7 +92,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Custom claim messages based on prize type
+    // Custom claim messages
     let claimMessage = '';
     if (selectedPrize.prize_type === 'username') {
       claimMessage = `Claim your username at https://guns.lol/`;
