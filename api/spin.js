@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  // Enable CORS headers so embedded iframes can communicate freely
+  // CORS headers for iframe support
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -20,11 +20,25 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Allow GET requests to fetch recent winners list for the ticker
+  if (req.method === 'GET') {
+    try {
+      const { data: winners } = await supabase
+        .from('recent_winners')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      return res.status(200).json({ winners: winners || [] });
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to fetch winners' });
+    }
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Fallback to various headers to safely track the client IP inside iframes
   const clientIp = 
     req.headers['x-vercel-forwarded-for'] || 
     req.headers['x-forwarded-for'] || 
@@ -81,6 +95,12 @@ export default async function handler(req, res) {
       last_spun_at: new Date().toISOString()
     });
 
+    // Record win in recent_winners table
+    await supabase.from('recent_winners').insert({
+      prize: selectedPrize.value,
+      prize_type: selectedPrize.prize_type
+    });
+
     // Generate visual reel items
     const reel = [];
     for (let i = 0; i < 30; i++) {
@@ -100,12 +120,20 @@ export default async function handler(req, res) {
       claimMessage = `Open a ticket with proof in discord.gg/vaultsociety to claim.`;
     }
 
+    // Fetch latest updated winners list to send back
+    const { data: updatedWinners } = await supabase
+      .from('recent_winners')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
     return res.status(200).json({
       success: true,
       prize: selectedPrize.value,
       type: selectedPrize.prize_type,
       message: claimMessage,
-      reel: reel
+      reel: reel,
+      winners: updatedWinners || []
     });
 
   } catch (err) {
