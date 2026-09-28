@@ -12,8 +12,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
         }
         .case-container {
             width: 90%;
@@ -83,19 +84,42 @@
         }
         button:hover { opacity: 0.9; }
         button:disabled { background: #52525b; color: #a1a1aa; cursor: not-allowed; }
-        #message { margin-top: 15px; font-weight: 500; }
+        #message { margin-top: 15px; font-weight: 500; font-size: 15px; line-height: 1.4; }
+        
+        /* Probabilities Index Styling */
+        .chances-box {
+            margin-top: 25px;
+            background: #09090b;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+        .chances-box h4 {
+            margin: 0 0 8px 0;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        .chances-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .chances-box li {
+            margin: 4px 0;
+        }
     </style>
 </head>
 <body>
 
 <div class="case-container">
     <h2>Vault Society Free Spin</h2>
-    <p>Test your luck and win a free verified handle!</p>
+    <p>Test your luck and win a free verified handle or discount voucher!</p>
     
     <div class="spinner-window">
         <div class="pointer"></div>
         <div class="reel" id="reel">
-            <!-- Initial placeholders -->
             <div class="reel-item">????</div>
             <div class="reel-item">----</div>
             <div class="reel-item">????</div>
@@ -107,6 +131,16 @@
 
     <button id="spinBtn" onclick="spinCase()">Spin For Free</button>
     <div id="message"></div>
+
+    <!-- Probabilities / Chances Index -->
+    <div class="chances-box">
+        <h4>📊 Prize Probabilities & Chances</h4>
+        <ul>
+            <li><b>Verified Usernames:</b> Common (~55%)</li>
+            <li><b>10% OFF Store Voucher:</b> Uncommon (~30%)</li>
+            <li><b>25% OFF Store Voucher:</b> Rare (~10%)</li>
+        </ul>
+    </div>
 </div>
 
 <script>
@@ -123,12 +157,12 @@ async function spinCase() {
         const data = await response.json();
 
         if (!response.ok) {
-            msg.textContent = data.error;
+            msg.textContent = data.error || "An error occurred.";
             btn.disabled = false;
             return;
         }
 
-        // Render reel items
+        // Render reel items dynamically using the returned reel array
         reel.innerHTML = data.reel.map((item, index) => 
             `<div class="reel-item ${index === 15 ? 'winner-box' : ''}">${item}</div>`
         ).join('');
@@ -139,19 +173,19 @@ async function spinCase() {
         
         setTimeout(() => {
             reel.style.transition = 'transform 4s cubic-bezier(0.05, 0.9, 0.1, 1)';
-            // Calculate pixel offset to land exact center on index 15
-            const itemWidth = 130; // 120px width + 10px total margins
+            const itemWidth = 130; // 120px width + 10px margins
             const centerOffset = (reel.parentElement.clientWidth / 2) - (itemWidth / 2);
             const targetX = -(15 * itemWidth) + centerOffset;
             reel.style.transform = `translateX(${targetX}px)`;
         }, 50);
 
+        // Display winning result and dynamic claim instructions after animation
         setTimeout(() => {
-            msg.innerHTML = `🎉 You won: <b>${data.winner}</b>! Check your code or contact support to claim.`;
+            msg.innerHTML = `🎉 You won: <b>${data.prize}</b>!<br>${data.message}`;
         }, 4100);
 
     } catch (err) {
-        msg.textContent = "An error occurred. Try again later.";
+        msg.textContent = "Server connection error. Try again later.";
         btn.disabled = false;
     }
 }

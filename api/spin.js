@@ -1,68 +1,84 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-    // Get user IP for cooldown tracking
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const now = new Date();
-    const cooldownHours = 24;
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-    // 1. Check Cooldown in Supabase
-    const { data: cooldownData, error: cooldownError } = await supabase
-        .from('user_cooldowns')
-        .select('last_spun_at')
-        .eq('identifier', clientIp)
-        .single();
+  try {
+    // Check cooldown (e.g., 24 hours)
+    const { data: cooldownData } = await supabase
+      .from('user_cooldowns')
+      .select('last_spun_at')
+      .eq('identifier', clientIp)
+      .single();
 
     if (cooldownData) {
-        const lastSpun = new Date(cooldownData.last_spun_at);
-        const hoursPassed = (now - lastSpun) / (1000 * 60 * 60);
-        if (hoursPassed < cooldownHours) {
-            const timeLeft = Math.ceil(cooldownHours - hoursPassed);
-            return res.status(400).json({ error: `Cooldown active. Try again in ${timeLeft} hours.` });
-        }
+      const lastSpun = new Date(cooldownData.last_spun_at).getTime();
+      const now = new Date().getTime();
+      const hoursPassed = (now - lastSpun) / (1000 * 60 * 60);
+      if (hoursPassed < 24) {
+        return res.status(429).json({ error: 'You are on cooldown. Try again later.' });
+      }
     }
 
-    // 2. Fetch available usernames from Supabase
-    const { data: usernames, error: fetchError } = await supabase
-        .from('available_usernames')
-        .select('*');
+    // Fetch available prizes
+    const { data: prizes, error: fetchError } = await supabase
+      .from('available_prizes')
+      .select('*');
 
-    if (fetchError || !usernames || usernames.length === 0) {
-        return res.status(400).json({ error: 'No usernames left in stock!' });
+    if (fetchError || !prizes || prizes.length === 0) {
+      return res.status(400).json({ error: 'No prizes left in stock!' });
     }
 
-    // 3. Pick a random winner
-    const randomIndex = Math.floor(Math.random() * usernames.length);
-    const winnerRecord = usernames[randomIndex];
+    // Weighted random selection algorithm
+    const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0);
+    let randomNum = Math.random() * totalWeight;
+    let selectedPrize = prizes[0];
 
-    // 4. Permanently delete the winner from Supabase so it can't be won again
-    const { error: deleteError } = await supabase
-        .from('available_usernames')
-        .delete()
-        .eq('id', winnerRecord.id);
-
-    if (deleteError) {
-        return res.status(500).json({ error: 'Internal server error during spin.' });
+    for (const prize of prizes) {
+      if (randomNum < prize.weight) {
+        selectedPrize = prize;
+        break;
+      }
+      randomNum -= prize.weight;
     }
 
-    // 5. Update or insert the user's cooldown timestamp
-    await supabase
-        .from('user_cooldowns')
-        .upsert({ identifier: clientIp, last_spun_at: now.toISOString() }, { onConflict: 'identifier' });
-
-    // 6. Build the visual reel array
-    const dummyPool = ['????', '----', 'xxxx', '####', '....', '1337', 'vault'];
-    const reel = [];
-    for (let i = 0; i < 20; i++) {
-        reel.push(dummyPool[Math.floor(Math.random() * dummyPool.length)]);
+    // If it's a username, remove it from stock so it can't be won twice
+    if (selectedPrize.prize_type === 'username') {
+      await supabase.from('available_prizes').delete().eq('id', selectedPrize.id);
     }
-    reel[15] = winnerRecord.username;
 
-    return res.status(200).json({ success: true, winner: winnerRecord.username, reel });
+    // Update cooldown for IP
+    await supabase.from('user_cooldowns').upsert({
+      identifier: clientIp,
+      last_spun_at: new Date().toISOString()
+    });
+
+    // Custom claim messages based on prize type
+    let claimMessage = '';
+    if (selectedPrize.prize_type === 'username') {
+      claimMessage = `Claim your username at https://guns.lol/`;
+    } else {
+      claimMessage = `Open a ticket with proof in discord.gg/vaultsociety to claim.`;
+    }
+
+    return res.status(200).json({
+      success: true,
+      prize: selectedPrize.value,
+      type: selectedPrize.prize_type,
+      message: claimMessage
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error during spin.' });
+  }
 }
