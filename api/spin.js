@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   try {
-    // Check cooldown (e.g., 24 hours)
+    // Check cooldown (24 hours)
     const { data: cooldownData } = await supabase
       .from('user_cooldowns')
       .select('last_spun_at')
@@ -62,6 +62,17 @@ export default async function handler(req, res) {
       last_spun_at: new Date().toISOString()
     });
 
+    // Generate a visual reel of 30 items where index 15 lands on the winner
+    const reel = [];
+    for (let i = 0; i < 30; i++) {
+      if (i === 15) {
+        reel.push(selectedPrize.value);
+      } else {
+        const randomFiller = prizes[Math.floor(Math.random() * prizes.length)];
+        reel.push(randomFiller.value);
+      }
+    }
+
     // Custom claim messages based on prize type
     let claimMessage = '';
     if (selectedPrize.prize_type === 'username') {
@@ -74,7 +85,8 @@ export default async function handler(req, res) {
       success: true,
       prize: selectedPrize.value,
       type: selectedPrize.prize_type,
-      message: claimMessage
+      message: claimMessage,
+      reel: reel
     });
 
   } catch (err) {
