@@ -71,7 +71,7 @@ export default async function handler(req, res) {
 
     const combinedPool = [];
 
-    // Add static prizes (like vouchers/discord)
+    // Add static prizes
     if (staticPrizes) {
       for (const p of staticPrizes) {
         combinedPool.push({
@@ -84,11 +84,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Add usernames into the pool. 
-    // We assign them an aggregate high weight so usernames are common overall!
+    // Add usernames into the pool
     if (usernameRows && usernameRows.length > 0) {
-      // Let's treat usernames as a whole category with a high combined weight (e.g., weight 85 total split among them)
-      // Or give each username an individual weight so they represent roughly ~70-80% of total drops.
       for (const u of usernameRows) {
         combinedPool.push({
           id: u.id,
@@ -133,13 +130,14 @@ export default async function handler(req, res) {
       prize: selectedPrize.value,
       prize_type: selectedPrize.prize_type
     });
+
     // Generate mystery reel fillers instead of showing other real database items
     const reel = [];
     const fillers = ['????', '----', 'BOX #1', 'BOX #2', 'MYSTERY'];
     
     for (let i = 0; i < 30; i++) {
       if (i === 15) {
-        reel.push(selectedPrize.value); // Only the winner is revealed at the end
+        reel.push(selectedPrize.value);
       } else {
         const randomFiller = fillers[Math.floor(Math.random() * fillers.length)];
         reel.push(randomFiller);
