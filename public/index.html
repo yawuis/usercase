@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vault Society Case Spinner</title>
+    <style>
+        body {
+            background-color: #0f0f0f;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .case-container {
+            width: 90%;
+            max-width: 600px;
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .spinner-window {
+            position: relative;
+            width: 100%;
+            height: 100px;
+            background: #09090b;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .pointer {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #ef4444;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .reel {
+            display: flex;
+            position: absolute;
+            left: 0;
+            transition: transform 4s cubic-bezier(0.15, 0.85, 0.35, 1);
+        }
+        .reel-item {
+            min-width: 120px;
+            height: 80px;
+            margin: 0 5px;
+            background: #27272a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 6px;
+            filter: blur(1px);
+        }
+        .reel-item.winner-box {
+            background: #3b82f6;
+            filter: blur(0px);
+        }
+        button {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #52525b; color: #a1a1aa; cursor: not-allowed; }
+        #message { margin-top: 15px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<div class="case-container">
+    <h2>Vault Society Free Spin</h2>
+    <p>Test your luck and win a free verified handle!</p>
+    
+    <div class="spinner-window">
+        <div class="pointer"></div>
+        <div class="reel" id="reel">
+            <!-- Initial placeholders -->
+            <div class="reel-item">????</div>
+            <div class="reel-item">----</div>
+            <div class="reel-item">????</div>
+            <div class="reel-item">----</div>
+            <div class="reel-item">????</div>
+            <div class="reel-item">----</div>
+        </div>
+    </div>
+
+    <button id="spinBtn" onclick="spinCase()">Spin For Free</button>
+    <div id="message"></div>
+</div>
+
+<script>
+async function spinCase() {
+    const btn = document.getElementById('spinBtn');
+    const msg = document.getElementById('message');
+    const reel = document.getElementById('reel');
+    
+    btn.disabled = true;
+    msg.textContent = "Spinning...";
+
+    try {
+        const response = await fetch('/api/spin', { method: 'POST' });
+        const data = await response.json();
+
+        if (!response.ok) {
+            msg.textContent = data.error;
+            btn.disabled = false;
+            return;
+        }
+
+        // Render reel items
+        reel.innerHTML = data.reel.map((item, index) => 
+            `<div class="reel-item ${index === 15 ? 'winner-box' : ''}">${item}</div>`
+        ).join('');
+
+        // Reset position and animate to winner index (15)
+        reel.style.transition = 'none';
+        reel.style.transform = 'translateX(0px)';
+        
+        setTimeout(() => {
+            reel.style.transition = 'transform 4s cubic-bezier(0.05, 0.9, 0.1, 1)';
+            // Calculate pixel offset to land exact center on index 15
+            const itemWidth = 130; // 120px width + 10px total margins
+            const centerOffset = (reel.parentElement.clientWidth / 2) - (itemWidth / 2);
+            const targetX = -(15 * itemWidth) + centerOffset;
+            reel.style.transform = `translateX(${targetX}px)`;
+        }, 50);
+
+        setTimeout(() => {
+            msg.innerHTML = `🎉 You won: <b>${data.winner}</b>! Check your code or contact support to claim.`;
+        }, 4100);
+
+    } catch (err) {
+        msg.textContent = "An error occurred. Try again later.";
+        btn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>

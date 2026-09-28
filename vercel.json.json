@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/spin", "destination": "/api/spin.js" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}
