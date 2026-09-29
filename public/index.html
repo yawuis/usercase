@@ -185,9 +185,11 @@ function getAnonymousToken() {
     }
 }
 
+const API_URL = 'https://usercase.vercel.app/api/spin';
+
 async function fetchWinners() {
     try {
-        const res = await fetch('/api/spin');
+        const res = await fetch(API_URL);
         const data = await res.json();
         if (data.winners) {
             renderWinners(data.winners);
@@ -231,7 +233,7 @@ async function spinCase() {
     const userToken = getAnonymousToken();
 
     try {
-        const response = await fetch('/api/spin', {
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken })
